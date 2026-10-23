@@ -23,10 +23,31 @@
       <section class="admin-panel" id="adminPanel" hidden>
         <div class="admin-toolbar"><div><p class="eyebrow eyebrow--accent">SYSTEM PULSE</p><h2>連線狀態</h2></div><button class="ghost-button" id="refreshDiagnostics" type="button">重新檢查</button></div>
         <div class="diagnostic-grid" id="diagnosticGrid"></div>
+        <section class="admin-card admin-customize">
+          <div class="admin-card-heading"><div><h3>奶蛙外觀與文字</h3><p class="admin-card-copy">只有管理員可以修改，儲存後一般首頁會立即套用。</p></div><span>管理員設定</span></div>
+          <form id="customizeForm" class="admin-customize-form">
+            <label class="avatar-picker" for="avatarInput">
+              <span class="avatar-preview" id="avatarPreview">🐸</span>
+              <span><strong>上傳奶蛙圖片</strong><small>PNG、JPG、WEBP 或 GIF，2 MB 以內</small></span>
+              <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+            </label>
+            <div class="form-grid">
+              <label><span>奶蛙暱稱</span><input name="deviceName" maxlength="120" placeholder="奶蛙" /></label>
+              <label><span>秘密基地名稱</span><input name="locationCaption" maxlength="120" placeholder="奶蛙秘密基地" /></label>
+            </div>
+            <div class="form-grid">
+              <label><span>首頁標題</span><input name="title" maxlength="120" placeholder="奶蛙在哪裡" /></label>
+              <label><span>首頁小句子</span><input name="tagline" maxlength="120" placeholder="今天的奶蛙，也在努力探索世界。" /></label>
+            </div>
+            <div class="theme-picker" role="group" aria-label="主題色"><span>主題色</span><label><input type="radio" name="accent" value="yellow" /><i class="theme-swatch theme-swatch--lime"></i>黃色</label><label><input type="radio" name="accent" value="violet" /><i class="theme-swatch theme-swatch--violet"></i>葡萄</label><label><input type="radio" name="accent" value="coral" /><i class="theme-swatch theme-swatch--coral"></i>珊瑚</label></div>
+            <div class="admin-customize-actions"><span>上次設定會保存在本機 data/settings.json</span><button class="primary-button" type="submit">儲存自訂</button></div>
+          </form>
+        </section>
         <div class="admin-columns">
           <section class="admin-card"><div class="admin-card-heading"><h3>活動紀錄</h3><span>最近 120 筆</span></div><div class="log-list" id="logList"></div></section>
           <section class="admin-card"><div class="admin-card-heading"><h3>裝置原始摘要</h3><span>僅供診斷</span></div><pre class="raw-panel" id="rawPanel">載入中…</pre></section>
         </div>
+        <section class="admin-card admin-history-card"><div class="admin-card-heading"><h3>完整定位歷史</h3><span>最近 200 筆，保存在本機</span></div><div class="admin-history-list" id="adminHistoryList"></div></section>
       </section>
     </main>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

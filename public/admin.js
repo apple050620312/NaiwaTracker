@@ -1,5 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 let adminKey = sessionStorage.getItem("naiwaAdminKey") || "";
+let avatarDataUrl = "";
 let toastTimer;
 
 function showToast(message) {
@@ -21,6 +22,55 @@ function prettyTime(value) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date);
+}
+
+function renderHistory(history = []) {
+  const list = $("#adminHistoryList");
+  list.replaceChildren();
+  history.forEach((entry) => {
+    const location = entry.location || {};
+    const row = document.createElement("article");
+    row.className = "admin-history-item";
+    const time = document.createElement("time");
+    time.textContent = prettyTime(entry.locatedAt);
+    const label = document.createElement("strong");
+    label.textContent = location.label || (location.latitude != null ? `${Number(location.latitude).toFixed(5)}, ${Number(location.longitude).toFixed(5)}` : "語意位置");
+    const detail = document.createElement("span");
+    detail.textContent = `${entry.name || "奶蛙"}${location.accuracy ? ` · 約 ${location.accuracy} 公尺` : ""}`;
+    row.append(time, label, detail);
+    list.append(row);
+  });
+  if (!history.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-copy";
+    empty.textContent = "尚未記錄定位。";
+    list.append(empty);
+  }
+}
+
+function setAvatar(element, dataUrl) {
+  if (!element) return;
+  if (dataUrl) {
+    element.textContent = "";
+    element.style.backgroundImage = `url("${dataUrl}")`;
+    element.style.backgroundSize = "cover";
+    element.style.backgroundPosition = "center";
+  } else {
+    element.textContent = "🐸";
+    element.style.backgroundImage = "";
+  }
+}
+
+function renderSettings(settings = {}) {
+  const form = $("#customizeForm");
+  if (!form) return;
+  form.elements.deviceName.value = settings.deviceName || "";
+  form.elements.locationCaption.value = settings.locationCaption || "";
+  form.elements.title.value = settings.title || "";
+  form.elements.tagline.value = settings.tagline || "";
+  form.elements.accent.value = settings.accent || "yellow";
+  avatarDataUrl = settings.avatarDataUrl || "";
+  setAvatar($("#avatarPreview"), avatarDataUrl);
 }
 
 function renderDiagnostics(data) {
@@ -70,7 +120,9 @@ function renderDiagnostics(data) {
     empty.textContent = "還沒有活動紀錄。";
     logs.append(empty);
   }
-  $("#rawPanel").textContent = JSON.stringify(data.devices || [], null, 2);
+  $("#rawPanel").textContent = JSON.stringify({ devices: data.devices || [], history: data.history || [] }, null, 2);
+  renderSettings(data.settings || {});
+  renderHistory(data.history || []);
 }
 
 async function loadDiagnostics() {
@@ -105,6 +157,49 @@ $("#refreshDiagnostics").addEventListener("click", async () => {
   } finally {
     button.disabled = false;
   }
+});
+
+$("#customizeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("button[type=submit]");
+  submit.disabled = true;
+  try {
+    const data = await request("/api/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        deviceName: form.elements.deviceName.value,
+        locationCaption: form.elements.locationCaption.value,
+        title: form.elements.title.value,
+        tagline: form.elements.tagline.value,
+        accent: form.elements.accent.value,
+        avatarDataUrl,
+      }),
+    });
+    renderSettings(data.settings || {});
+    showToast("自訂已儲存，首頁會立即套用");
+    await loadDiagnostics();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+$("#avatarInput").addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2_000_000) {
+    showToast("圖片太大，請選擇 2 MB 以內的圖片");
+    event.target.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    avatarDataUrl = reader.result;
+    setAvatar($("#avatarPreview"), avatarDataUrl);
+  };
+  reader.readAsDataURL(file);
 });
 
 if (adminKey) {

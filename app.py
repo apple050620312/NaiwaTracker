@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -27,8 +28,9 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC_DIR = ROOT / "public"
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.getenv("NAIWA_DATA_DIR", ROOT / "data"))
 SETTINGS_FILE = DATA_DIR / "settings.json"
+HISTORY_FILE = DATA_DIR / "history.json"
 VENDOR_DIR = Path(os.getenv("FINDHUB_TOOLS_PATH", ROOT / "vendor" / "GoogleFindMyTools"))
 HOST = os.getenv("NAIWA_HOST", "127.0.0.1")
 PORT = int(os.getenv("NAIWA_PORT", "8765"))
@@ -38,10 +40,10 @@ FINDHUB_MODE = os.getenv("FINDHUB_MODE", "auto").strip().lower()
 DEFAULT_SETTINGS: dict[str, Any] = {
     "title": "奶蛙在哪裡",
     "tagline": "今天的奶蛙，也在努力探索世界。",
-    "deviceName": "奶蛙的 Xiaomi Tag",
+    "deviceName": "奶蛙",
     "locationCaption": "奶蛙秘密基地",
     "avatarDataUrl": "",
-    "accent": "lime",
+    "accent": "yellow",
 }
 
 
@@ -111,6 +113,54 @@ class ActivityLog:
             return list(self._entries)
 
 
+class HistoryStore:
+    """Small durable history for the last location reports."""
+
+    def __init__(self, path: Path, max_entries: int = 200):
+        self.path = path
+        self.max_entries = max_entries
+        self.lock = threading.RLock()
+        self.records: list[dict[str, Any]] = []
+        self._load()
+
+    def _load(self) -> None:
+        with self.lock:
+            try:
+                raw = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else []
+                if isinstance(raw, list):
+                    self.records = [item for item in raw if isinstance(item, dict)][: self.max_entries]
+            except (OSError, json.JSONDecodeError):
+                self.records = []
+
+    def add(self, device: dict[str, Any], location: dict[str, Any], located_at: str) -> dict[str, Any]:
+        record = {
+            "id": uuid.uuid4().hex,
+            "trackerId": device["id"],
+            "name": device.get("name", "奶蛙"),
+            "model": device.get("model", "奶蛙"),
+            "locatedAt": located_at,
+            "location": json_safe(location),
+        }
+        with self.lock:
+            self.records.insert(0, record)
+            self.records = self.records[: self.max_entries]
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.records, ensure_ascii=False, indent=2), encoding="utf-8")
+        return record
+
+    def list(self, limit: int | None = None) -> list[dict[str, Any]]:
+        with self.lock:
+            records = self.records if limit is None else self.records[: max(0, limit)]
+            return [json_safe(item) for item in records]
+
+    def latest_for(self, tracker_id: str) -> dict[str, Any] | None:
+        with self.lock:
+            for record in self.records:
+                if record.get("trackerId") == tracker_id:
+                    return json_safe(record)
+        return None
+
+
 class ProviderError(RuntimeError):
     pass
 
@@ -123,9 +173,10 @@ class FindHubProvider:
     lets the app report missing optional dependencies in the admin channel.
     """
 
-    def __init__(self, settings: SettingsStore, activity: ActivityLog):
+    def __init__(self, settings: SettingsStore, activity: ActivityLog, history: HistoryStore):
         self.settings = settings
         self.activity = activity
+        self.history = history
         self.lock = threading.RLock()
         self.devices: dict[str, dict[str, Any]] = {}
         self.last_sync: str | None = None
@@ -157,7 +208,7 @@ class FindHubProvider:
             from NovaApi.scopes import NOVA_ACTION_API_SCOPE
             from NovaApi.util import generate_random_uuid
             from ProtoDecoders import Common_pb2, DeviceUpdate_pb2
-            from ProtoDecoders.decoder import get_canonic_ids, parse_device_list_protobuf, parse_device_update_protobuf
+            from ProtoDecoders.decoder import parse_device_list_protobuf, parse_device_update_protobuf
         except Exception as exc:  # ImportError plus dependency/runtime errors.
             raise ProviderError(f"GoogleFindMyTools 載入失敗：{exc}") from exc
         self._upstream = {
@@ -174,7 +225,6 @@ class FindHubProvider:
             "generate_random_uuid": generate_random_uuid,
             "Common_pb2": Common_pb2,
             "DeviceUpdate_pb2": DeviceUpdate_pb2,
-            "get_canonic_ids": get_canonic_ids,
             "parse_device_list_protobuf": parse_device_list_protobuf,
             "parse_device_update_protobuf": parse_device_update_protobuf,
         }
@@ -197,10 +247,10 @@ class FindHubProvider:
         custom_name = self.settings.get().get("deviceName") or DEFAULT_SETTINGS["deviceName"]
         caption = self.settings.get().get("locationCaption") or DEFAULT_SETTINGS["locationCaption"]
         return {
-            "id": "demo-xiaomi-tag",
-            "canonicId": "demo-xiaomi-tag",
+            "id": "naiwa",
+            "canonicId": "naiwa",
             "name": custom_name,
-            "model": "Xiaomi Tag",
+            "model": "奶蛙",
             "status": "online",
             "source": "demo",
             "location": {
@@ -220,23 +270,32 @@ class FindHubProvider:
         if not result_hex:
             raise ProviderError("Find Hub 沒有回傳裝置清單")
         device_list = api["parse_device_list_protobuf"](result_hex)
-        canonic_ids = api["get_canonic_ids"](device_list)
-        if not canonic_ids:
-            raise ProviderError("Find Hub 帳號中找不到可追蹤裝置")
-        devices: dict[str, dict[str, Any]] = {}
-        for index, (name, canonic_id) in enumerate(canonic_ids, start=1):
-            key = f"tracker-{index}"
-            label = name or f"Xiaomi Tag {index}"
-            devices[key] = {
-                "id": key,
-                "canonicId": canonic_id,
-                "name": label,
-                "model": "Xiaomi Tag · Find Hub",
-                "status": "ready",
-                "source": "findhub",
-                "location": None,
-            }
-        return devices
+        # GoogleFindMyTools returns Android phones alongside Spot trackers.
+        # The product follows the user's tracker, so deliberately ignore
+        # phone canonic IDs and keep one Spot target in the main experience.
+        spot_type = api["DeviceUpdate_pb2"].IDENTIFIER_SPOT
+        spot_devices: list[dict[str, Any]] = []
+        for device in device_list.deviceMetadata:
+            if device.identifierInformation.type != spot_type:
+                continue
+            canonic_ids = device.identifierInformation.canonicIds.canonicId
+            if not canonic_ids:
+                continue
+            label = device.userDefinedDeviceName or "我的奶蛙"
+            spot_devices.append(
+                {
+                    "id": "naiwa",
+                    "canonicId": canonic_ids[0].id,
+                    "name": label,
+                    "model": "奶蛙",
+                    "status": "ready",
+                    "source": "findhub",
+                    "location": None,
+                }
+            )
+        if not spot_devices:
+            raise ProviderError("Find Hub 帳號中找不到可用的奶蛙追蹤器")
+        return {spot_devices[0]["id"]: spot_devices[0]}
 
     def refresh(self) -> dict[str, Any]:
         with self.lock:
@@ -257,6 +316,13 @@ class FindHubProvider:
                 demo = self._demo_device()
                 self.devices = {demo["id"]: demo}
                 self.activity.add("error", "Find Hub 連線失敗，暫時使用示範資料", str(exc))
+            for device in self.devices.values():
+                if device.get("location") is None:
+                    recent = self.history.latest_for(device["id"])
+                    if recent and recent.get("location"):
+                        device["location"] = recent["location"]
+                        device["lastLocatedAt"] = recent.get("locatedAt")
+                        device["status"] = "online"
             self.last_sync = utc_now()
             return self.snapshot()
 
@@ -367,16 +433,28 @@ class FindHubProvider:
             device["location"] = location
             device["status"] = "online"
             device["lastLocatedAt"] = utc_now()
+            self.history.add(device, location, device["lastLocatedAt"])
             self.activity.add("success", f"已更新 {device['name']} 的位置")
             return dict(device)
 
-    def snapshot(self) -> dict[str, Any]:
+    @staticmethod
+    def _device_payload(device: dict[str, Any], include_private: bool = False) -> dict[str, Any]:
+        payload = json_safe(device)
+        if not include_private:
+            payload.pop("canonicId", None)
+            payload.pop("source", None)
+            payload["name"] = "奶蛙"
+            payload["model"] = "奶蛙"
+        return payload
+
+    def snapshot(self, include_private: bool = False) -> dict[str, Any]:
         with self.lock:
+            source = self.source if include_private else ("online" if self.source == "findhub" else self.source)
             return {
-                "source": self.source,
+                "source": source,
                 "lastSync": self.last_sync,
                 "lastError": self.last_error,
-                "devices": [json_safe(item) for item in self.devices.values()],
+                "devices": [self._device_payload(item, include_private) for item in self.devices.values()],
             }
 
 
@@ -385,11 +463,25 @@ class AppState:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.settings = SettingsStore(SETTINGS_FILE)
         self.activity = ActivityLog()
-        self.provider = FindHubProvider(self.settings, self.activity)
+        self.history = HistoryStore(HISTORY_FILE)
+        self.provider = FindHubProvider(self.settings, self.activity, self.history)
 
     def bootstrap(self) -> dict[str, Any]:
         snapshot = self.provider.snapshot()
-        return {"settings": self.settings.get(), **snapshot, "serverTime": utc_now()}
+        return {"settings": self.public_settings(), "history": self.public_history(20), **snapshot, "serverTime": utc_now()}
+
+    def public_settings(self) -> dict[str, Any]:
+        settings = self.settings.get()
+        settings["deviceName"] = "奶蛙"
+        return settings
+
+    def public_history(self, limit: int | None = None) -> list[dict[str, Any]]:
+        records = self.history.list(limit)
+        for record in records:
+            record.pop("trackerId", None)
+            record.pop("model", None)
+            record["name"] = "奶蛙"
+        return records
 
 
 APP = AppState()
@@ -440,7 +532,11 @@ def validate_settings(changes: dict[str, Any]) -> dict[str, Any]:
             result[key] = value
     if "accent" in changes:
         value = str(changes["accent"])
-        if value not in {"lime", "violet", "coral"}:
+        # "lime" was the original label; accept it once so existing local
+        # settings continue to load after the yellow theme update.
+        if value == "lime":
+            value = "yellow"
+        if value not in {"yellow", "violet", "coral"}:
             raise ValueError("accent 不在可用的主題色中")
         result["accent"] = value
     if "avatarDataUrl" in changes:
@@ -515,7 +611,7 @@ class NaiwaHandler(BaseHTTPRequestHandler):
             if not self._admin_ok():
                 self._send_error_json("需要管理員金鑰", HTTPStatus.UNAUTHORIZED)
                 return
-            snapshot = APP.provider.snapshot()
+            snapshot = APP.provider.snapshot(include_private=True)
             self._send_json(
                 {
                     "health": {
@@ -527,6 +623,8 @@ class NaiwaHandler(BaseHTTPRequestHandler):
                         "vendorPresent": VENDOR_DIR.exists(),
                         "authFilePresent": FindHubProvider._auth_file_exists(),
                     },
+                    "settings": APP.settings.get(),
+                    "history": APP.history.list(),
                     "logs": APP.activity.list(),
                     "devices": snapshot["devices"],
                 }
@@ -549,6 +647,9 @@ class NaiwaHandler(BaseHTTPRequestHandler):
             # request (notably when the browser follows a POST with a GET).
             request_body = read_json(self)
             if path == "/api/settings":
+                if not self._admin_ok():
+                    self._send_error_json("需要管理員金鑰", HTTPStatus.UNAUTHORIZED)
+                    return
                 body = validate_settings(request_body)
                 updated = APP.settings.update(body)
                 # A custom device name/location caption should be reflected in
@@ -562,7 +663,8 @@ class NaiwaHandler(BaseHTTPRequestHandler):
                 tracker_id = path[len("/api/trackers/") : -len("/locate")].strip("/")
                 if not tracker_id:
                     raise ValueError("缺少追蹤器 ID")
-                self._send_json(APP.provider.locate(tracker_id))
+                updated = APP.provider.locate(tracker_id)
+                self._send_json({"device": APP.provider._device_payload(updated), "history": APP.public_history(20)})
             elif path == "/admin/api/refresh":
                 if not self._admin_ok():
                     self._send_error_json("需要管理員金鑰", HTTPStatus.UNAUTHORIZED)

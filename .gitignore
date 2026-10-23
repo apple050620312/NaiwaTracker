@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 venv/
 data/settings.json
+data/history.json
 vendor/GoogleFindMyTools/Auth/secrets.json
 vendor/GoogleFindMyTools/Auth/__pycache__/
 *.log
