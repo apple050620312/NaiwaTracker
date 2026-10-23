@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#11151c" />
+    <title>奶蛙在哪裡</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="追蹤器導覽">
+        <div class="brand-lockup">
+          <div class="brand-orbit" aria-hidden="true"><span>🐸</span></div>
+          <div>
+            <p class="eyebrow">NAIWA TRACKER</p>
+            <h1 id="brandTitle">奶蛙在哪裡</h1>
+          </div>
+        </div>
+
+        <div class="sidebar-intro">
+          <span class="status-dot status-dot--live" id="sourceDot"></span>
+          <div>
+            <strong id="sourceLabel">正在載入</strong>
+            <p id="sourceHint">準備查看奶蛙的足跡</p>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-heading">
+            <span>我的追蹤器</span>
+            <span class="count-pill" id="deviceCount">0</span>
+          </div>
+          <div class="device-list" id="deviceList" aria-live="polite"></div>
+        </div>
+
+        <div class="sidebar-tip">
+          <span class="tip-icon">✦</span>
+          <div>
+            <strong>小提醒</strong>
+            <p>定位會需要一點時間，讓奶蛙慢慢回報就好。</p>
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="text-button" id="openCustomize" type="button">
+            <span aria-hidden="true">✎</span> 自訂奶蛙
+          </button>
+          <a class="admin-link" href="/admin.html">管理員診斷</a>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="todayLabel">TODAY · FIND HUB</p>
+            <p class="topbar-copy" id="tagline">今天的奶蛙，也在努力探索世界。</p>
+          </div>
+          <div class="topbar-actions">
+            <span class="sync-label" id="syncLabel">尚未同步</span>
+            <button class="icon-button" id="refreshButton" type="button" aria-label="重新整理" title="重新整理">
+              <span aria-hidden="true">↻</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="hero-row">
+          <div>
+            <p class="eyebrow eyebrow--accent">LIVE LOCATION</p>
+            <h2 id="heroTitle">奶蛙現在在哪裡？</h2>
+          </div>
+          <button class="primary-button" id="locateButton" type="button">
+            <span class="button-icon" aria-hidden="true">⌁</span>
+            <span>現在定位</span>
+          </button>
+        </section>
+
+        <section class="map-card" aria-label="奶蛙的位置地圖">
+          <div class="map-toolbar">
+            <div class="selected-device">
+              <div class="mini-avatar" id="miniAvatar" aria-hidden="true">🐸</div>
+              <div>
+                <strong id="selectedName">奶蛙的 Xiaomi Tag</strong>
+                <span id="selectedModel">Xiaomi Tag</span>
+              </div>
+            </div>
+            <div class="map-status" id="mapStatus"><span class="status-dot status-dot--live"></span> 定位已更新</div>
+          </div>
+          <div class="map-stage" id="mapStage">
+            <div class="map-noise"></div>
+            <div class="map-road map-road--one"></div>
+            <div class="map-road map-road--two"></div>
+            <div class="map-road map-road--three"></div>
+            <div class="map-water"></div>
+            <div class="map-neighborhood neighborhood--one">信義</div>
+            <div class="map-neighborhood neighborhood--two">大安</div>
+            <div class="map-neighborhood neighborhood--three">松山</div>
+            <div class="map-scale"><span></span><small>500 m</small></div>
+            <div class="map-marker" id="mapMarker" aria-label="奶蛙位置">
+              <div class="marker-pulse"></div>
+              <div class="marker-pin"><span id="markerAvatar">🐸</span></div>
+              <div class="marker-label"><strong id="markerLabel">奶蛙秘密基地</strong><span id="markerTime">剛剛</span></div>
+            </div>
+            <div class="map-empty" id="mapEmpty" hidden>
+              <span>⌖</span>
+              <strong>還沒有位置資料</strong>
+              <small>按下「現在定位」，請奶蛙回報一下。</small>
+            </div>
+          </div>
+          <div class="map-footer">
+            <div class="location-copy">
+              <span class="location-pin" aria-hidden="true">⌖</span>
+              <div>
+                <strong id="locationLabel">台北信義區 · 奶蛙秘密基地</strong>
+                <span id="coordinates">25.03395° N · 121.56447° E</span>
+              </div>
+            </div>
+            <a class="map-link" id="mapsLink" href="#" target="_blank" rel="noreferrer">在 Google Maps 開啟 <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="位置資訊摘要">
+          <article class="stat-card">
+            <div class="stat-icon stat-icon--lime">◌</div>
+            <div><span>最後回報</span><strong id="lastSeen">8 分鐘前</strong></div>
+            <span class="stat-decoration">✦</span>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon stat-icon--violet">⌖</div>
+            <div><span>位置精準度</span><strong id="accuracy">約 32 公尺</strong></div>
+            <span class="stat-decoration">+</span>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon stat-icon--coral">♡</div>
+            <div><span>追蹤狀態</span><strong id="trackerStatus">正在附近</strong></div>
+            <span class="stat-decoration">✦</span>
+          </article>
+        </section>
+
+        <section class="journey-card">
+          <div class="journey-heading">
+            <div>
+              <p class="eyebrow">A LITTLE NOTE</p>
+              <h3>給今天的奶蛙</h3>
+            </div>
+            <span class="journey-sparkle" aria-hidden="true">✧</span>
+          </div>
+          <p id="noteCopy">只要有回報，就知道你平安。慢慢走、好好玩，晚上見。</p>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="customizeModal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="customizeTitle">
+        <button class="modal-close" id="closeCustomize" type="button" aria-label="關閉">×</button>
+        <p class="eyebrow eyebrow--accent">MAKE IT YOURS</p>
+        <h2 id="customizeTitle">把奶蛙換成你的樣子</h2>
+        <p class="modal-copy">換一張照片、改一句招呼，這個小角落就會更像你們。</p>
+        <form id="customizeForm">
+          <label class="avatar-picker" for="avatarInput">
+            <span class="avatar-preview" id="avatarPreview">🐸</span>
+            <span><strong>上傳奶蛙圖片</strong><small>PNG、JPG、WEBP，2 MB 以內</small></span>
+            <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+          </label>
+          <div class="form-grid">
+            <label><span>追蹤器暱稱</span><input name="deviceName" maxlength="120" placeholder="奶蛙的 Xiaomi Tag" /></label>
+            <label><span>秘密基地名稱</span><input name="locationCaption" maxlength="120" placeholder="奶蛙秘密基地" /></label>
+          </div>
+          <label><span>首頁標題</span><input name="title" maxlength="120" placeholder="奶蛙在哪裡" /></label>
+          <label><span>首頁小句子</span><textarea name="tagline" maxlength="120" rows="2" placeholder="今天的奶蛙，也在努力探索世界。"></textarea></label>
+          <div class="theme-picker" role="group" aria-label="主題色">
+            <span>主題色</span>
+            <label><input type="radio" name="accent" value="lime" /><i class="theme-swatch theme-swatch--lime"></i>青檸</label>
+            <label><input type="radio" name="accent" value="violet" /><i class="theme-swatch theme-swatch--violet"></i>葡萄</label>
+            <label><input type="radio" name="accent" value="coral" /><i class="theme-swatch theme-swatch--coral"></i>珊瑚</label>
+          </div>
+          <div class="modal-actions">
+            <button class="ghost-button" id="cancelCustomize" type="button">先不要</button>
+            <button class="primary-button" type="submit">儲存自訂</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

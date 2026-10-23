@@ -1,0 +1,3 @@
+# The core web app uses Python's standard library.  These packages are needed
+# only when FINDHUB_MODE=live and GoogleFindMyTools has to authenticate/query.
+-r vendor/GoogleFindMyTools/requirements.txt

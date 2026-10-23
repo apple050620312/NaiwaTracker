@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>奶蛙在哪裡 · 管理員診斷</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-body">
+    <main class="admin-shell">
+      <header class="admin-header">
+        <a class="back-link" href="/">← 回到奶蛙首頁</a>
+        <div class="admin-mark"><span>⌘</span><div><p class="eyebrow">PRIVATE CHANNEL</p><h1>管理員診斷</h1></div></div>
+        <p class="admin-intro">這裡只放連線與除錯資訊。一般使用者不會看到憑證、原始回應或伺服器堆疊。</p>
+      </header>
+
+      <section class="admin-auth" id="adminAuth">
+        <div class="admin-lock">⌑</div>
+        <div><h2>需要管理員金鑰</h2><p>請輸入啟動伺服器時的 <code>NAIWA_ADMIN_KEY</code>。</p></div>
+        <form id="adminAuthForm"><label><span>管理員金鑰</span><input id="adminKey" type="password" autocomplete="off" required /></label><button class="primary-button" type="submit">開啟診斷</button></form>
+      </section>
+
+      <section class="admin-panel" id="adminPanel" hidden>
+        <div class="admin-toolbar"><div><p class="eyebrow eyebrow--accent">SYSTEM PULSE</p><h2>連線狀態</h2></div><button class="ghost-button" id="refreshDiagnostics" type="button">重新檢查</button></div>
+        <div class="diagnostic-grid" id="diagnosticGrid"></div>
+        <div class="admin-columns">
+          <section class="admin-card"><div class="admin-card-heading"><h3>活動紀錄</h3><span>最近 120 筆</span></div><div class="log-list" id="logList"></div></section>
+          <section class="admin-card"><div class="admin-card-heading"><h3>裝置原始摘要</h3><span>僅供診斷</span></div><pre class="raw-panel" id="rawPanel">載入中…</pre></section>
+        </div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/admin.js"></script>
+  </body>
+</html>
